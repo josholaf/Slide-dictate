@@ -13,7 +13,7 @@ A small handle sits on the edge of your screen. Slide it out, tap Start, speak â
 ## Use it in 3 steps
 
 1. Install the app, allow the microphone, and turn on Slide Dictate under Accessibility settings.
-2. Download the Tiny model (75 MB, good enough to start) and tap Use.
+2. Download the Tiny model (75 MB, good enough to start). The first download selects itself; tap Use only to switch models later.
 3. Open any app, tap a text field, slide out the edge handle, tap Start, speak, tap Stop.
 
 That's it â€” your speech is typed in.

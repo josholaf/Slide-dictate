@@ -81,6 +81,21 @@ class MainActivity : Activity() {
             setOnCheckedChangeListener { _, on -> Prefs.setOfflineOnly(this@MainActivity, on) }
         })
 
+        box.addView(label("Edge handle", 20f, true, 24))
+        box.addView(Switch(this).apply {
+            text = "Show handle"; textSize = 16f; setPadding(0, dp(8), 0, 0)
+            isChecked = Prefs.handleVisible(this@MainActivity)
+            setOnCheckedChangeListener { _, on ->
+                Prefs.setHandleVisible(this@MainActivity, on)
+                sendHandle(visible = on)
+            }
+        })
+        box.addView(label("Handle position. Up moves it toward the top.", 14f, top = 6))
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row.addView(btn("Up") { nudgeHandle(-40) })
+        row.addView(btn("Down") { nudgeHandle(40) })
+        box.addView(row)
+
         box.addView(label("Models", 20f, true, 24))
         for (m in ModelStore.models) {
             val ready = ModelStore.isReady(this, m)
@@ -95,7 +110,24 @@ class MainActivity : Activity() {
             box.addView(label("${m.label}, ${m.mb} MB$state"))
             if (p == null && !ready) box.addView(btn("Download") { startDownload(m) })
             if (p == null && ready && !inUse) box.addView(btn("Use") { Prefs.setModel(this, m.id); render() })
+            if (p == null && ready) box.addView(btn("Delete") {
+                Thread { ModelStore.delete(this, m); runOnUiThread { render() } }.start()
+            })
         }
+    }
+
+    private fun sendHandle(visible: Boolean? = null, offsetYdp: Int? = null) {
+        sendBroadcast(Intent(DictationService.ACTION_HANDLE).apply {
+            setPackage(packageName)
+            if (visible != null) putExtra(DictationService.EXTRA_VISIBLE, visible)
+            if (offsetYdp != null) putExtra(DictationService.EXTRA_OFFSET_Y, offsetYdp)
+        })
+    }
+
+    private fun nudgeHandle(d: Int) {
+        val v = (Prefs.handleOffsetY(this) + d).coerceIn(-320, 320)
+        Prefs.setHandleOffsetY(this, v)
+        sendHandle(offsetYdp = v)
     }
 
     private fun startDownload(m: ModelInfo) {

@@ -57,7 +57,7 @@ app/src/main/
     ModelStore.kt          # model list + Hugging Face downloader
     MainActivity.kt        # setup screen (permission, service, models)
     MicForegroundService.kt# microphone foreground hold
-    Prefs.kt               # offline-only flag + selected model
+    Prefs.kt               # offline flag + selected model + handle prefs
   cpp/whisper_jni.cpp, CMakeLists.txt
   AndroidManifest.xml
   res/xml/accessibility_service_config.xml
@@ -70,6 +70,7 @@ Zero dependencies beyond the Android SDK and Kotlin. UI is built in code (no lay
 - `RECORD_AUDIO` — dictation
 - `INTERNET` — model downloads only
 - `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MICROPHONE` — mic hold while panel is open
+- `POST_NOTIFICATIONS` — Android 13+ mic-recording indicator (requested in-app)
 - Accessibility service binding — draw handle/panel, find focused field, set text
 
 ## Status and limits
@@ -86,5 +87,5 @@ Zero dependencies beyond the Android SDK and Kotlin. UI is built in code (no lay
 3. VAD + chunked transcription so text appears while speaking.
 4. Online mode (`SpeechRecognizer`) or remove the off position.
 5. Handle polish: touch area, vertical position, Quick Settings tile.
-6. Models: delete, resume, SHA-256 check, multilingual.
+6. Models: resume interrupted downloads, SHA-256 check, multilingual (delete is done).
 7. Release: icon, signing, ProGuard/R8 check for JNI.

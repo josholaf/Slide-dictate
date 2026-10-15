@@ -21,18 +21,32 @@ object ModelStore {
     fun path(c: Context, m: ModelInfo) = File(dir(c), m.file)
     fun isReady(c: Context, m: ModelInfo) = path(c, m).exists()
 
-    /** Blocking. Call from a background thread. Writes to .part, then renames when complete. */
+    fun delete(c: Context, m: ModelInfo) {
+        path(c, m).delete()
+        File(dir(c), m.file + ".part").delete()
+        if (Prefs.model(c) == m.id) Prefs.clearModel(c)
+    }
+
+    /**
+     * Blocking. Call from a background thread. Writes to .part, then renames when complete.
+     * Resumes an interrupted download with HTTP Range when the server allows it (Hugging Face does),
+     * otherwise restarts from scratch.
+     */
     fun download(c: Context, m: ModelInfo, onProgress: (Int) -> Unit) {
         val tmp = File(dir(c), m.file + ".part")
+        val have = if (tmp.exists()) tmp.length() else 0L
         val conn = URL(m.url).openConnection() as HttpURLConnection
         conn.connectTimeout = 15_000
         conn.readTimeout = 30_000
         conn.instanceFollowRedirects = true
-        val total = conn.contentLengthLong
+        if (have > 0) conn.setRequestProperty("Range", "bytes=$have-")
+        val resumed = conn.responseCode == HttpURLConnection.HTTP_PARTIAL
+        if (!resumed) tmp.delete()
+        val total = (if (resumed) have else 0L) + conn.contentLengthLong
         conn.inputStream.use { input ->
-            tmp.outputStream().use { out ->
+            java.io.FileOutputStream(tmp, resumed).use { out ->
                 val buf = ByteArray(64 * 1024)
-                var done = 0L
+                var done = if (resumed) have else 0L
                 var last = -1
                 while (true) {
                     val n = input.read(buf)

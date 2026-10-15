@@ -2,9 +2,12 @@ package app.slidedictate
 
 import android.Manifest
 import android.accessibilityservice.AccessibilityService
+import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -44,9 +47,31 @@ class DictationService : AccessibilityService() {
     private var engine: Transcriber? = null
     private var engineFile: String? = null
 
+    companion object {
+        const val ACTION_HANDLE = "app.slidedictate.HANDLE"
+        const val EXTRA_VISIBLE = "visible"
+        const val EXTRA_OFFSET_Y = "offset_y"
+    }
+
+    private val handleCmd = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            if (i.action != ACTION_HANDLE) return
+            if (i.hasExtra(EXTRA_VISIBLE)) {
+                if (i.getBooleanExtra(EXTRA_VISIBLE, true)) showHandle() else hideHandle()
+            }
+            if (i.hasExtra(EXTRA_OFFSET_Y)) moveHandle(i.getIntExtra(EXTRA_OFFSET_Y, 0))
+        }
+    }
+
     override fun onServiceConnected() {
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        addHandle()
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(handleCmd, IntentFilter(ACTION_HANDLE), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(handleCmd, IntentFilter(ACTION_HANDLE))
+        }
+        if (Prefs.handleVisible(this)) addHandle()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
@@ -55,6 +80,7 @@ class DictationService : AccessibilityService() {
     override fun onDestroy() {
         if (recording) recorder.stop()
         stopMicHold()
+        runCatching { unregisterReceiver(handleCmd) }
         runCatching { handle?.let { wm.removeView(it) } }
         runCatching { panel?.let { wm.removeView(it) } }
         engine?.close()
@@ -67,11 +93,14 @@ class DictationService : AccessibilityService() {
 
     private fun addHandle() {
         val r = dp(10).toFloat()
-        val v = View(this).apply {
+        val pill = View(this).apply {
             background = GradientDrawable().apply {
                 setColor(0xFF0D6A6A.toInt())
                 cornerRadii = floatArrayOf(r, r, 0f, 0f, 0f, 0f, r, r)
             }
+        }
+        val dock = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
             var downX = 0f
             setOnTouchListener { _, ev ->
                 when (ev.actionMasked) {
@@ -83,15 +112,36 @@ class DictationService : AccessibilityService() {
                 }
                 true
             }
+            addView(pill, LinearLayout.LayoutParams(dp(22), dp(96)).apply {
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            })
         }
         val lp = WindowManager.LayoutParams(
-            dp(22), dp(96),
+            dp(64), dp(160),
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
-        wm.addView(v, lp)
-        handle = v
+        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; y = dp(Prefs.handleOffsetY(this@DictationService)) }
+        wm.addView(dock, lp)
+        handle = dock
+    }
+
+    private fun showHandle() {
+        if (handle == null) {
+            addHandle()
+            if (panel != null) handle?.visibility = View.GONE
+        } else handle?.visibility = View.VISIBLE
+    }
+
+    private fun hideHandle() {
+        handle?.visibility = View.GONE
+    }
+
+    private fun moveHandle(offsetYdp: Int) {
+        val h = handle ?: return
+        val lp = h.layoutParams as WindowManager.LayoutParams
+        lp.y = dp(offsetYdp)
+        wm.updateViewLayout(h, lp)
     }
 
     private fun showPanel() {
@@ -145,7 +195,7 @@ class DictationService : AccessibilityService() {
         if (recording) { recorder.stop(); recording = false; stopMicHold() }
         panel?.let { runCatching { wm.removeView(it) } }
         panel = null; status = null; micBtn = null
-        handle?.visibility = View.VISIBLE
+        handle?.visibility = if (Prefs.handleVisible(this)) View.VISIBLE else View.GONE
     }
 
     private fun setStatus(s: String) { status?.text = s }

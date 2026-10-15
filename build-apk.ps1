@@ -1,4 +1,12 @@
 $ErrorActionPreference = "Stop"
+
+# sdkmanager/gradle need Java but agent shells often lack JAVA_HOME and PATH entries.
+if (-not $env:JAVA_HOME) {
+  foreach ($cand in @('C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot', 'C:\Program Files\Microsoft\jdk-17.0.16.8-hotspot')) {
+    if (Test-Path (Join-Path $cand 'bin\java.exe')) { $env:JAVA_HOME = $cand; break }
+  }
+}
+if ($env:JAVA_HOME) { $env:Path = "$env:JAVA_HOME\bin;$env:Path" }
 $sdk = Join-Path $env:LOCALAPPDATA "Android\Sdk"
 $toolsDir = Join-Path $sdk "cmdline-tools\latest"
 $tmp = Join-Path $env:TEMP "slide-dictate-bootstrap"
