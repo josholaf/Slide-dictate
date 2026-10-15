@@ -1,0 +1,3 @@
+<resources>
+    <string name="service_desc">Shows a handle on the screen edge. Slide it out to dictate, and the text is typed into the focused field. Audio is processed on the phone.</string>
+</resources>
