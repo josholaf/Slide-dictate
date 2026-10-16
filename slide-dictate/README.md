@@ -9,8 +9,9 @@ Speech recognition runs fully on-device with downloaded open-source Whisper (ggm
 1. `DictationService` (AccessibilityService) draws a 22x96dp handle on the right screen edge as a `TYPE_ACCESSIBILITY_OVERLAY` — no "draw over other apps" permission needed.
 2. Slide left / tap the handle to open a 300dp panel (`Start dictation`, status, `Offline only` switch).
 3. Tap Start: `Recorder` captures 16 kHz mono PCM16 via `AudioRecord` (`VOICE_RECOGNITION`), splits speech on 1.2 s pauses and emits each chunk live (`onChunk`); `stop()` returns the un-emitted tail. A `MicForegroundService` (type `microphone`) holds mic access so Android 14+ doesn't block background capture. Tap Stop to finish.
-4. `WhisperEngine` (whisper.cpp via JNI `libwhisper_jni`) transcribes on a background thread: PCM16 → float in [-1, 1] → `nativeTranscribe`. Without the native lib it falls back to `StubTranscriber`.
-5. Text is inserted into the focused input node via `ACTION_SET_TEXT` (cursor preserved, smart leading space), fallback to clipboard + `ACTION_PASTE`, else copied with a "no field focused" message.
+4. `WhisperEngine` (whisper.cpp via JNI `libwhisper_jni`) transcribes on a background thread: PCM16 → float in [-1, 1] → `nativeTranscribe`. Language is `en` for `.en` models, auto-detect otherwise. Without the native lib it falls back to `StubTranscriber`.
+5. Text is inserted into the focused input node via `ACTION_SET_TEXT` (cursor preserved, smart leading space), fallback to clipboard + `ACTION_PASTE`, else copied with a "no field focused" message. Each finished chunk is inserted as it arrives, so text appears while speaking.
+6. Online mode: with Offline only off, dictation uses Google voice typing (`SpeechRecognizer`, needs Google services) with live partial results in the status line.
 
 ## Setup
 
@@ -85,10 +86,10 @@ Zero dependencies beyond the Android SDK and Kotlin. UI is built in code (no lay
 
 ## Roadmap
 
-1. Real engine (whisper.cpp NDK: `init(path)`, `transcribe(float[])`, `free()`; alt: sherpa-onnx with ONNX models).
-2. Verify mic capture from the service on Android 14+.
-3. VAD + chunked transcription so text appears while speaking.
-4. Online mode (`SpeechRecognizer`) or remove the off position.
+1. Real engine: done (whisper.cpp v1.5.4 vendored, JNI `init(path, language)` / `transcribe(float[])` / `free()`, stub fallback).
+2. Mic capture on Android 14+: done (foreground service of type `microphone`).
+3. VAD + chunked transcription: done (chunks transcribed and inserted in order while speaking).
+4. Online mode: done (`SpeechRecognizer` with partial results; clear message without Google services).
 5. Handle polish: done (wide grab area, vertical position, Quick Settings tile).
-6. Models: SHA-256 check (delete, resume, multilingual done).
-7. Release: wire launcher/notification icons (Lucide vectors vendored), signing, ProGuard/R8 check for JNI.
+6. Models: larger/quantized variants pending (need verified sizes + SHA-256; delete, resume, SHA check, multilingual done).
+7. Release: done pending keystore (conditional signing, ProGuard rules, Lucide icons wired).

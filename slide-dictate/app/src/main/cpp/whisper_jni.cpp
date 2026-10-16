@@ -7,19 +7,26 @@
 
 struct Ctx {
     struct whisper_context* ctx = nullptr;
+    std::string lang = "en";
 };
 
 extern "C" {
 
 JNIEXPORT jlong JNICALL
-Java_app_slidedictate_WhisperEngine_nativeInit(JNIEnv* env, jobject, jstring path_) {
+Java_app_slidedictate_WhisperEngine_nativeInit(JNIEnv* env, jobject, jstring path_, jstring lang_) {
     const char* path = env->GetStringUTFChars(path_, nullptr);
+    const char* lang = env->GetStringUTFChars(lang_, nullptr);
     struct whisper_context_params params = whisper_context_default_params();
     struct whisper_context* ctx = whisper_init_from_file_with_params(path, params);
     env->ReleaseStringUTFChars(path_, path);
-    if (!ctx) return 0;
-    Ctx* holder = new Ctx();
-    holder->ctx = ctx;
+    Ctx* holder = nullptr;
+    if (ctx) {
+        holder = new Ctx();
+        holder->ctx = ctx;
+        holder->lang = (lang && lang[0]) ? lang : "en";
+    }
+    env->ReleaseStringUTFChars(lang_, lang);
+    if (!holder) return 0;
     return reinterpret_cast<jlong>(holder);
 }
 
@@ -38,7 +45,7 @@ Java_app_slidedictate_WhisperEngine_nativeTranscribe(JNIEnv* env, jobject, jlong
     wparams.print_realtime = false;
     wparams.print_timestamps = false;
     wparams.translate = false;
-    wparams.language = "en";
+    wparams.language = holder->lang.c_str();
     wparams.n_threads = 4;
 
     if (whisper_full(holder->ctx, wparams, samples.data(), (int)samples.size()) != 0) {
@@ -76,7 +83,7 @@ Java_app_slidedictate_WhisperEngine_nativeFree(JNIEnv*, jobject, jlong handle) {
 extern "C" {
 
 JNIEXPORT jlong JNICALL
-Java_app_slidedictate_WhisperEngine_nativeInit(JNIEnv*, jobject, jstring) {
+Java_app_slidedictate_WhisperEngine_nativeInit(JNIEnv*, jobject, jstring, jstring) {
     return 0;
 }
 

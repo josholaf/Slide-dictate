@@ -24,11 +24,11 @@ class MicForegroundService : Service() {
         ensureChannel()
         val note = if (Build.VERSION.SDK_INT >= 26) {
             Notification.Builder(this, CHANNEL).setContentTitle("Listening")
-                .setContentText("Slide Dictate is recording").setSmallIcon(android.R.drawable.ic_btn_speak_now).build()
+                .setContentText("Slide Dictate is recording").setSmallIcon(R.drawable.ic_mic_signal).build()
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this).setContentTitle("Listening")
-                .setContentText("Slide Dictate is recording").setSmallIcon(android.R.drawable.ic_btn_speak_now).build()
+                .setContentText("Slide Dictate is recording").setSmallIcon(R.drawable.ic_mic_signal).build()
         }
         if (Build.VERSION.SDK_INT >= 29) {
             startForeground(ID, note, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)

@@ -49,4 +49,4 @@ Full technical details: see [slide-dictate/README.md](slide-dictate/README.md).
 
 ## Honest status
 
-Early prototype that works, not yet polished: the handle is slim, online mode isn't built (leave Offline only on), and a few apps without standard text fields get the text on the clipboard instead. See the roadmap in the technical README if you want to help.
+Early prototype that works, not yet polished: the panel is plain, a few apps without standard text fields get the text on the clipboard instead, and larger/quantized models aren't listed yet. Offline dictation and Google voice typing both work — see the technical README for details.

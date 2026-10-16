@@ -9,6 +9,7 @@
 
     <application
         android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
         android:label="Slide Dictate"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
@@ -41,7 +42,7 @@
             android:name=".HandleTileService"
             android:exported="true"
             android:label="Dictate handle"
-            android:icon="@android:drawable/ic_btn_speak_now"
+            android:icon="@drawable/ic_mic"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />

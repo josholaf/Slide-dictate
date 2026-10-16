@@ -15,7 +15,9 @@ class WhisperEngine(modelFile: File) : Transcriber {
     init {
         val err = loadError
         check(err == null) { "native lib missing: $err" }
-        handle = nativeInit(modelFile.absolutePath)
+        // Multilingual ggml models (no ".en" in the name) get language detection.
+        val lang = if (modelFile.name.contains(".en.")) "en" else "auto"
+        handle = nativeInit(modelFile.absolutePath, lang)
         check(handle != 0L) { "whisper init failed for ${modelFile.name}" }
     }
 
@@ -36,7 +38,7 @@ class WhisperEngine(modelFile: File) : Transcriber {
         closed = true
     }
 
-    private external fun nativeInit(path: String): Long
+    private external fun nativeInit(path: String, language: String): Long
     private external fun nativeTranscribe(handle: Long, samples: FloatArray): String?
     private external fun nativeFree(handle: Long)
 
