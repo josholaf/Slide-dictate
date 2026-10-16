@@ -7,17 +7,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(whisper_jni SHARED whisper_jni.cpp)
 
 # whisper.cpp checkout expected at app/src/main/cpp/whisper.cpp
-# (git submodule, tag matching the ggml models in ModelStore).
+# (v1.5.x flat tree: whisper.cpp/h + ggml*.c at root).
 # If absent the JNI stub still builds so assembleDebug stays green.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/whisper.cpp/whisper.cpp")
     target_compile_definitions(whisper_jni PRIVATE HAVE_WHISPER_CPP)
-    target_include_directories(whisper_jni PRIVATE whisper.cpp whisper.cpp/ggml/include)
+    target_include_directories(whisper_jni PRIVATE whisper.cpp)
     target_sources(whisper_jni PRIVATE
         whisper.cpp/whisper.cpp
-        whisper.cpp/ggml/src/ggml.c
-        whisper.cpp/ggml/src/ggml-alloc.c
-        whisper.cpp/ggml/src/ggml-backend.c
-        whisper.cpp/ggml/src/ggml-quants.c
+        whisper.cpp/ggml.c
+        whisper.cpp/ggml-alloc.c
+        whisper.cpp/ggml-backend.c
+        whisper.cpp/ggml-quants.c
     )
     if(ANDROID_ABI STREQUAL "arm64-v8a")
         target_compile_options(whisper_jni PRIVATE -O3)

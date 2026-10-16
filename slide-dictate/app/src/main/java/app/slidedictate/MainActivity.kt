@@ -108,7 +108,15 @@ class MainActivity : Activity() {
                 else -> ""
             }
             box.addView(label("${m.label}, ${m.mb} MB$state"))
-            if (p == null && !ready) box.addView(btn("Download") { startDownload(m) })
+            val kept = if (!ready) ModelStore.partMb(this, m) else null
+            if (p == null && kept != null) {
+                box.addView(label("  incomplete download, ${kept} MB kept"))
+                box.addView(btn("Resume") { startDownload(m) })
+                box.addView(btn("Discard + redownload") {
+                    ModelStore.discardPart(this, m)
+                    startDownload(m)
+                })
+            } else if (p == null && !ready) box.addView(btn("Download") { startDownload(m) })
             if (p == null && ready && !inUse) box.addView(btn("Use") { Prefs.setModel(this, m.id); render() })
             if (p == null && ready) box.addView(btn("Delete") {
                 Thread { ModelStore.delete(this, m); runOnUiThread { render() } }.start()

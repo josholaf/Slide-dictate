@@ -3,3 +3,6 @@ build/
 local.properties
 *.iml
 .idea/
+# Third-party whisper.cpp checkout (tools/fetch-whisper.ps1 recreates it).
+# The JNI layer still builds without it (stub fallback).
+app/src/main/cpp/whisper.cpp/

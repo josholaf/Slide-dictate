@@ -14,6 +14,9 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -25,6 +28,8 @@ import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
 import java.io.File
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
 /**
@@ -37,6 +42,11 @@ class DictationService : AccessibilityService() {
     private lateinit var wm: WindowManager
     private val main = Handler(Looper.getMainLooper())
     private val recorder = Recorder()
+    private var online: SpeechRecognizer? = null
+    private val chunkQ = LinkedBlockingQueue<ShortArray>()
+    private var chunkWorker: Thread? = null
+    @Volatile private var chunkRun = false
+    @Volatile private var chunksDone = 0
 
     private var handle: View? = null
     private var panel: View? = null
@@ -78,7 +88,7 @@ class DictationService : AccessibilityService() {
     override fun onInterrupt() {}
 
     override fun onDestroy() {
-        if (recording) recorder.stop()
+        if (online != null) cancelOnline() else if (recording) runCatching { recorder.stop() }
         stopMicHold()
         runCatching { unregisterReceiver(handleCmd) }
         runCatching { handle?.let { wm.removeView(it) } }
@@ -158,13 +168,17 @@ class DictationService : AccessibilityService() {
             addView(title, LinearLayout.LayoutParams(0, -2, 1f))
             addView(close)
         }
-        val mic = Button(this).apply { text = "Start dictation"; setOnClickListener { toggleRecording() } }
+        val mic = Button(this).apply {
+            text = "Start dictation"
+            setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_mic_audio_lines, 0, 0, 0)
+            setOnClickListener { toggleRecording() }
+        }
         val st = TextView(this).apply { text = "Tap start, speak, tap stop."; setTextColor(ink); textSize = 14f }
         val offline = Switch(this).apply {
             text = "Offline only"; setTextColor(ink); isChecked = Prefs.offlineOnly(this@DictationService)
             setOnCheckedChangeListener { _, on ->
                 Prefs.setOfflineOnly(this@DictationService, on)
-                setStatus(if (on) "Offline only." else "Online mode is not built yet.")
+                setStatus(if (on) "Offline only." else "Online mode uses Google voice typing.")
             }
         }
 
@@ -192,7 +206,10 @@ class DictationService : AccessibilityService() {
     }
 
     private fun hidePanel() {
-        if (recording) { recorder.stop(); recording = false; stopMicHold() }
+        if (online != null) cancelOnline() else if (recording) {
+            stopOffline()
+            chunkQ.offer(ShortArray(0))
+        }
         panel?.let { runCatching { wm.removeView(it) } }
         panel = null; status = null; micBtn = null
         handle?.visibility = if (Prefs.handleVisible(this)) View.VISIBLE else View.GONE
@@ -229,31 +246,131 @@ class DictationService : AccessibilityService() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             setStatus("Open Slide Dictate and allow the microphone."); return
         }
-        if (!Prefs.offlineOnly(this)) { setStatus("Online mode is not built yet. Turn on Offline only."); return }
+        if (!Prefs.offlineOnly(this)) { startOnline(); return }
         if (modelFile() == null) { setStatus("Open Slide Dictate, download a model, and tap Use."); return }
-        if (!recorder.start()) { setStatus("The microphone is busy or blocked."); return }
+        recorder.onChunk = { pcm -> chunkQ.offer(pcm) }
+        if (!recorder.start()) { recorder.onChunk = null; setStatus("The microphone is busy or blocked."); return }
         recording = true
         startMicHold()
         micBtn?.text = "Stop"
-        setStatus("Listening...")
+        setStatus("Listening... pause and text appears as you speak.")
+        chunkRun = true
+        chunksDone = 0
+        chunkWorker = Thread {
+            while (chunkRun || chunkQ.isNotEmpty()) {
+                val c = try {
+                    chunkQ.poll(200, TimeUnit.MILLISECONDS)
+                } catch (e: InterruptedException) {
+                    null
+                } ?: continue
+                if (c.isEmpty()) break
+                transcribeChunk(c)
+            }
+        }.also { it.start() }
     }
 
-    private fun finishRecording() {
+    private fun transcribeChunk(pcm: ShortArray) {
+        val file = modelFile()
+        if (file == null) {
+            main.post { setStatus("Open Slide Dictate, download a model, and tap Use.") }
+            return
+        }
+        val text = try {
+            engineFor(file).transcribe(pcm, Recorder.RATE).trim()
+        } catch (t: Throwable) {
+            main.post { setStatus("Transcription failed: ${t.message}") }
+            return
+        }
+        chunksDone++
+        main.post { insert(text) }
+    }
+
+    private fun stopOffline(): ShortArray {
         recording = false
         stopMicHold()
         micBtn?.text = "Start dictation"
-        val pcm = recorder.stop()
-        val file = modelFile() ?: return
-        setStatus("Transcribing...")
-        Thread {
-            val text = try {
-                engineFor(file).transcribe(pcm, Recorder.RATE).trim()
-            } catch (t: Throwable) {
-                main.post { setStatus("Transcription failed: ${t.message}") }
-                return@Thread
+        recorder.onChunk = null
+        val rest = recorder.stop()
+        chunkRun = false
+        return rest
+    }
+
+    private fun startOnline() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            setStatus("Google voice typing is not on this phone. Turn on Offline only.")
+            return
+        }
+        val sr = runCatching { SpeechRecognizer.createSpeechRecognizer(this) }.getOrNull()
+        if (sr == null) { setStatus("Could not start online recognition."); return }
+        sr.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) = Unit
+            override fun onBeginningOfSpeech() = Unit
+            override fun onRmsChanged(rmsdB: Float) = Unit
+            override fun onBufferReceived(buffer: ByteArray?) = Unit
+            override fun onEndOfSpeech() = Unit
+            override fun onEvent(eventType: Int, params: Bundle?) = Unit
+            override fun onPartialResults(partial: Bundle?) {
+                if (online == null) return
+                partial?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()?.let { setStatus(it) }
             }
-            main.post { insert(text) }
-        }.start()
+            override fun onResults(results: Bundle?) {
+                if (online == null) return
+                val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull().orEmpty()
+                cleanupOnline()
+                insert(text)
+            }
+            override fun onError(error: Int) {
+                if (online == null) return
+                cleanupOnline()
+                setStatus("Online recognition failed.")
+            }
+        })
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+        }
+        if (runCatching { sr.startListening(intent) }.isFailure) {
+            runCatching { sr.destroy() }
+            setStatus("Could not start online recognition."); return
+        }
+        online = sr
+        recording = true
+        startMicHold()
+        micBtn?.text = "Stop"
+        setStatus("Listening online...")
+    }
+
+    private fun cleanupOnline() {
+        recording = false
+        stopMicHold()
+        micBtn?.text = "Start dictation"
+        runCatching { online?.destroy() }
+        online = null
+    }
+
+    private fun cancelOnline() {
+        runCatching { online?.cancel() }
+        cleanupOnline()
+    }
+
+    private fun stopOnline() {
+        setStatus("Transcribing...")
+        runCatching { online?.stopListening() }
+    }
+
+    private fun finishRecording() {
+        if (online != null) { stopOnline(); return }
+        if (!recording) return
+        val rest = stopOffline()
+        if (Recorder.audible(rest)) {
+            setStatus("Transcribing...")
+            chunkQ.offer(rest)
+        } else if (chunksDone == 0) {
+            setStatus("Heard nothing.")
+        }
+        chunkQ.offer(ShortArray(0))
     }
 
     private fun insert(text: String) {

@@ -43,7 +43,7 @@ gradle wrapper --gradle-version 8.7
 
 The finished app is at `slide-dictate/app/build/outputs/apk/debug/app-debug.apk`.
 
-For real on-device transcription, check out whisper.cpp into `slide-dictate/app/src/main/cpp/whisper.cpp` and rebuild. Without it the app still runs end to end with a test message so you can try the full flow.
+For real on-device transcription, whisper.cpp v1.5.4 is already vendored under `slide-dictate/app/src/main/cpp/whisper.cpp` — rebuild and dictation uses it. Without it the app still runs end to end with a test message so you can try the full flow.
 
 Full technical details: see [slide-dictate/README.md](slide-dictate/README.md).
 

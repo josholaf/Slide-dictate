@@ -2,7 +2,7 @@
 #include <string>
 
 #ifdef HAVE_WHISPER_CPP
-#include "whisper.cpp/whisper.h"
+#include "whisper.h"
 #include <vector>
 
 struct Ctx {

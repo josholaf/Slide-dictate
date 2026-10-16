@@ -42,5 +42,23 @@ Toolchain: Kotlin 1.9.24, AGP 8.5.2, `minSdk 26`, `compileSdk/targetSdk 34`, Jav
 - Smallest diff that builds. No new dependencies without asking.
 - UI stays code-built Views (no XML layouts/themes) until the build is green on a real device.
 - `DictationService` owns overlay + recording + insertion; `Recorder` stays 16 kHz mono PCM16; `ModelStore` URLs stay ggml unless the engine change requires otherwise.
-- Do not commit: `local.properties`, `.gradle/`, `build/`, `*.apk`, downloaded `.bin` models.
+- Do not commit: `local.properties`, `.gradle/`, `build/`, `*.apk`, downloaded `.bin` models, keystores (`.jks`/`.keystore`).
 - Next work in order: (1) green build, (2) real whisper.cpp engine, (3) Android 14+ mic check, (4) chunked/VAD dictation. Details in `slide-dictate/AGENTS.md`.
+
+## Release signing
+
+`app/build.gradle.kts` signs `release` with `slideRelease` when a key is present,
+debug key otherwise (warning logged). Never commit the keystore. One-time setup:
+
+```powershell
+keytool -genkeypair -v -keystore $env:USERPROFILE\slide-release.jks -alias slide -keyalg RSA -keysize 2048 -validity 10000
+$env:SLIDE_KEYSTORE = "$env:USERPROFILE\slide-release.jks"
+$env:SLIDE_KEYSTORE_PASSWORD = "..."
+$env:SLIDE_KEY_ALIAS = "slide"
+$env:SLIDE_KEY_PASSWORD = "..."
+```
+
+Local alternative without env vars: put `slide.keystore`, `slide.keystorePassword`,
+`slide.keyAlias`, `slide.keyPassword` in `%USERPROFILE%\.gradle\gradle.properties`.
+Then `./gradlew assembleRelease` and smoke-test transcription on the release APK,
+since R8 only runs there.
