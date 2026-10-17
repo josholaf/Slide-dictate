@@ -51,6 +51,7 @@ class DictationService : AccessibilityService() {
     private var handle: View? = null
     private var panel: View? = null
     private var status: TextView? = null
+    private var modeLine: TextView? = null
     private var micBtn: Button? = null
     private var recording = false
 
@@ -175,12 +176,6 @@ class DictationService : AccessibilityService() {
         }
         val st = TextView(this).apply { text = "Tap start, speak, tap stop."; setTextColor(ink); textSize = 14f }
         val mode = TextView(this).apply {
-            val m = Prefs.model(this@DictationService)?.let { id -> ModelStore.models.firstOrNull { it.id == id } }
-            text = when {
-                !Prefs.offlineOnly(this@DictationService) -> "Online · Google voice typing"
-                m == null -> "Offline · no model selected yet"
-                else -> "Offline · " + m.label + " (" + m.mb + " MB)"
-            }
             textSize = 12f; setTextColor(0xFF5A6B72.toInt())
             setPadding(0, dp(2), 0, dp(6))
         }
@@ -188,6 +183,7 @@ class DictationService : AccessibilityService() {
             text = "Offline only"; setTextColor(ink); isChecked = Prefs.offlineOnly(this@DictationService)
             setOnCheckedChangeListener { _, on ->
                 Prefs.setOfflineOnly(this@DictationService, on)
+                updateModeLine()
                 setStatus(if (on) "Offline only." else "Online mode uses Google voice typing.")
             }
         }
@@ -212,7 +208,8 @@ class DictationService : AccessibilityService() {
         ).apply { gravity = Gravity.END or Gravity.BOTTOM; x = dp(10); y = dp(40) }
 
         wm.addView(card, lp)
-        panel = card; status = st; micBtn = mic
+        panel = card; status = st; micBtn = mic; modeLine = mode
+        updateModeLine()
         handle?.visibility = View.GONE
     }
 
@@ -222,11 +219,22 @@ class DictationService : AccessibilityService() {
             chunkQ.offer(ShortArray(0))
         }
         panel?.let { runCatching { wm.removeView(it) } }
-        panel = null; status = null; micBtn = null
+        panel = null; status = null; micBtn = null; modeLine = null
         handle?.visibility = if (Prefs.handleVisible(this)) View.VISIBLE else View.GONE
     }
 
     private fun setStatus(s: String) { status?.text = s }
+
+    /** Live mode line under the status: which engine and model will be used right now. */
+    private fun updateModeLine() {
+        val tv = modeLine ?: return
+        val m = Prefs.model(this)?.let { id -> ModelStore.models.firstOrNull { it.id == id } }
+        tv.text = when {
+            !Prefs.offlineOnly(this) -> "Online · Google voice typing"
+            m == null -> "Offline · no model selected yet"
+            else -> "Offline · " + m.label + " (" + m.mb + " MB)"
+        }
+    }
 
     // ---- dictation --------------------------------------------------------
 
