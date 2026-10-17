@@ -21,19 +21,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # ubuntu-latest runners already ship the Android SDK at ANDROID_SDK_ROOT.
+      # ubuntu-latest runners already ship the Android SDK; use the provisioned Gradle directly.
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
-      - name: Generate Gradle wrapper (none is checked in)
-        run: gradle wrapper --gradle-version 8.7
-
       - name: Run unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: gradle testDebugUnitTest --stacktrace
 
       - name: Build debug and release APKs
-        run: ./gradlew assembleDebug assembleRelease --stacktrace
+        run: gradle assembleDebug assembleRelease --stacktrace
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
