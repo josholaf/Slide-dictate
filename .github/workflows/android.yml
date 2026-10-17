@@ -24,6 +24,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Fetch the real whisper.cpp (gitignored locally) so the JNI builds the
+      # actual engine instead of the stub. v1.5.4 has the flat tree CMakeLists expects.
+      - name: Fetch whisper.cpp v1.5.4
+        run: git clone --depth 1 --branch v1.5.4 https://github.com/ggerganov/whisper.cpp.git slide-dictate/app/src/main/cpp/whisper.cpp
+
       # ubuntu-latest runners already ship the Android SDK; use the provisioned Gradle directly.
       - uses: gradle/actions/setup-gradle@v4
         with:
