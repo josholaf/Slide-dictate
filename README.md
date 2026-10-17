@@ -49,4 +49,4 @@ Full technical details: see [slide-dictate/README.md](slide-dictate/README.md).
 
 ## Honest status
 
-Early prototype that works, not yet polished: the panel is plain, a few apps without standard text fields get the text on the clipboard instead, and larger/quantized models aren't listed yet. Offline dictation and Google voice typing both work — see the technical README for details.
+Early prototype that works, not yet polished: the panel is plain, and a few apps without standard text fields get the text on the clipboard instead. Quantized (q5) and larger (Medium) models are now listed in the app, and CI builds an APK on every push. Offline dictation and Google voice typing both work — see the technical README for details.

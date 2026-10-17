@@ -32,6 +32,29 @@ object ModelStore {
             "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe"),
         ModelInfo("small-multi", "Whisper Small (multilingual)", "ggml-small.bin", BASE + "ggml-small.bin", 466,
             "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b"),
+        // Quantized q5_1 variants: ~40% smaller downloads, slightly lower accuracy.
+        ModelInfo("tiny.en-q5_1", "Whisper Tiny (English, q5_1)", "ggml-tiny.en-q5_1.bin", BASE + "ggml-tiny.en-q5_1.bin", 31,
+            "c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b"),
+        ModelInfo("base.en-q5_1", "Whisper Base (English, q5_1)", "ggml-base.en-q5_1.bin", BASE + "ggml-base.en-q5_1.bin", 57,
+            "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f"),
+        ModelInfo("small.en-q5_1", "Whisper Small (English, q5_1)", "ggml-small.en-q5_1.bin", BASE + "ggml-small.en-q5_1.bin", 181,
+            "bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30"),
+        ModelInfo("tiny-q5_1", "Whisper Tiny (multilingual, q5_1)", "ggml-tiny-q5_1.bin", BASE + "ggml-tiny-q5_1.bin", 31,
+            "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7"),
+        ModelInfo("base-q5_1", "Whisper Base (multilingual, q5_1)", "ggml-base-q5_1.bin", BASE + "ggml-base-q5_1.bin", 57,
+            "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898"),
+        ModelInfo("small-q5_1", "Whisper Small (multilingual, q5_1)", "ggml-small-q5_1.bin", BASE + "ggml-small-q5_1.bin", 181,
+            "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb"),
+        // Larger models for much better accuracy (need a powerful phone; Medium is 1.4 GB).
+        // large-v3-turbo deliberately NOT listed: needs whisper.cpp >= 1.7 (vendored copy is 1.5.4).
+        ModelInfo("medium.en", "Whisper Medium (English)", "ggml-medium.en.bin", BASE + "ggml-medium.en.bin", 1463,
+            "cc37e93478338ec7700281a7ac30a10128929eb8f427dda2e865faa8f6da4356"),
+        ModelInfo("medium.en-q5_0", "Whisper Medium (English, q5_0)", "ggml-medium.en-q5_0.bin", BASE + "ggml-medium.en-q5_0.bin", 514,
+            "76733e26ad8fe1c7a5bf7531a9d41917b2adc0f20f2e4f5531688a8c6cd88eb0"),
+        ModelInfo("medium-multi", "Whisper Medium (multilingual)", "ggml-medium.bin", BASE + "ggml-medium.bin", 1463,
+            "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208"),
+        ModelInfo("medium-multi-q5_0", "Whisper Medium (multilingual, q5_0)", "ggml-medium-q5_0.bin", BASE + "ggml-medium-q5_0.bin", 514,
+            "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f"),
     )
 
     private fun dir(c: Context) = File(c.filesDir, "models").apply { mkdirs() }

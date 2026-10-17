@@ -32,6 +32,16 @@ Downloaded from Hugging Face (`ggerganov/whisper.cpp`) into app-private `filesDi
 | tiny-multi | `ggml-tiny.bin` | 75 MB |
 | base-multi | `ggml-base.bin` | 142 MB |
 | small-multi | `ggml-small.bin` | 466 MB |
+| tiny.en-q5_1 | `ggml-tiny.en-q5_1.bin` | 31 MB |
+| base.en-q5_1 | `ggml-base.en-q5_1.bin` | 57 MB |
+| small.en-q5_1 | `ggml-small.en-q5_1.bin` | 181 MB |
+| tiny-q5_1 | `ggml-tiny-q5_1.bin` | 31 MB |
+| base-q5_1 | `ggml-base-q5_1.bin` | 57 MB |
+| small-q5_1 | `ggml-small-q5_1.bin` | 181 MB |
+| medium.en | `ggml-medium.en.bin` | 1.4 GB |
+| medium.en-q5_0 | `ggml-medium.en-q5_0.bin` | 514 MB |
+| medium-multi | `ggml-medium.bin` | 1.4 GB |
+| medium-multi-q5_0 | `ggml-medium-q5_0.bin` | 514 MB |
 
 English-only and multilingual side by side. Download writes to `.part`, resumes with HTTP Range, then renames on completion. The finished file's SHA-256 is verified against the pinned hash; mismatches are deleted and fail the download.
 
@@ -44,6 +54,8 @@ cd slide-dictate
 gradle wrapper --gradle-version 8.7   # once, no wrapper is checked in
 ./gradlew assembleDebug
 ```
+
+CI (`.github/workflows/android.yml`) builds debug and release APKs on every push and attaches them to the GitHub release page on `v*` tags. Set `SLIDE_KEYSTORE`, `SLIDE_KEYSTORE_PASSWORD`, `SLIDE_KEY_ALIAS` and `SLIDE_KEY_PASSWORD` as repository secrets to get a signed release APK; without them CI produces a debug-key-signed APK for sideloading.
 
 Install the APK, enable the accessibility service, download Tiny, dictate. With only the stub you will see `[stub: N s of audio, model X]` typed into the field.
 
@@ -82,7 +94,7 @@ Zero dependencies beyond the Android SDK and Kotlin. UI is built in code (no lay
 - Works end to end with the stub engine; real whisper.cpp wiring is the next step.
 - `Offline only` off currently just shows "Online mode is not built yet."
 - Handle is a 22dp pill with a wide invisible grab area; position adjustable from the app.
-- Text insertion needs a standard input node; games / some WebViews get clipboard fallback or nothing.
+- Text insertion: SET_TEXT, then paste, then clipboard. When nothing reports input focus, the active window is scanned for an editable node first (helps WebViews). Games with custom canvases still get clipboard only.
 
 ## Roadmap
 
@@ -91,5 +103,5 @@ Zero dependencies beyond the Android SDK and Kotlin. UI is built in code (no lay
 3. VAD + chunked transcription: done (chunks transcribed and inserted in order while speaking).
 4. Online mode: done (`SpeechRecognizer` with partial results; clear message without Google services).
 5. Handle polish: done (wide grab area, vertical position, Quick Settings tile).
-6. Models: larger/quantized variants pending (need verified sizes + SHA-256; delete, resume, SHA check, multilingual done).
+6. Models: done — q5_1 quantized tiny/base/small plus Medium (plain and q5_0), all SHA-256 pinned. large-v3-turbo is deliberately excluded until the vendored whisper.cpp is upgraded (needs >= 1.7).
 7. Release: done pending keystore (conditional signing, ProGuard rules, Lucide icons wired).

@@ -174,6 +174,16 @@ class DictationService : AccessibilityService() {
             setOnClickListener { toggleRecording() }
         }
         val st = TextView(this).apply { text = "Tap start, speak, tap stop."; setTextColor(ink); textSize = 14f }
+        val mode = TextView(this).apply {
+            val m = Prefs.model(this@DictationService)?.let { id -> ModelStore.models.firstOrNull { it.id == id } }
+            text = when {
+                !Prefs.offlineOnly(this@DictationService) -> "Online · Google voice typing"
+                m == null -> "Offline · no model selected yet"
+                else -> "Offline · " + m.label + " (" + m.mb + " MB)"
+            }
+            textSize = 12f; setTextColor(0xFF5A6B72.toInt())
+            setPadding(0, dp(2), 0, dp(6))
+        }
         val offline = Switch(this).apply {
             text = "Offline only"; setTextColor(ink); isChecked = Prefs.offlineOnly(this@DictationService)
             setOnCheckedChangeListener { _, on ->
@@ -191,6 +201,7 @@ class DictationService : AccessibilityService() {
             addView(head)
             addView(mic)
             addView(st)
+            addView(mode)
             addView(offline)
         }
         val lp = WindowManager.LayoutParams(
@@ -373,10 +384,30 @@ class DictationService : AccessibilityService() {
         chunkQ.offer(ShortArray(0))
     }
 
+    /**
+     * The focused input node, or — when nothing reports input focus (common in WebViews and
+     * some apps) — the first editable node found by scanning the active window. Games with
+     * custom canvases still return null and the caller falls back to the clipboard.
+     */
+    private fun focusedEditable(): AccessibilityNodeInfo? {
+        val root = rootInActiveWindow ?: return null
+        val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        if (focused != null && (focused.isEditable || focused.text != null)) return focused
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.add(root)
+        while (queue.isNotEmpty()) {
+            val n = queue.removeFirst()
+            if (n.isEditable) return n
+            for (i in 0 until n.childCount) n.getChild(i)?.let { queue.add(it) }
+        }
+        return focused
+    }
+
     private fun insert(text: String) {
         if (text.isBlank()) { setStatus("Heard nothing."); return }
-        val node = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        val node = focusedEditable()
         if (node == null) { copy(text); setStatus("No text field is focused. Copied instead."); return }
+        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
 
         val cur = if (node.isShowingHintText) "" else node.text?.toString().orEmpty()
         val s = node.textSelectionStart.let { if (it < 0) cur.length else it.coerceAtMost(cur.length) }
