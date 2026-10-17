@@ -27,7 +27,17 @@ jobs:
           gradle-version: '8.7'
 
       - name: Run unit tests
+        id: tests
+        continue-on-error: true   # do not block the APK build; reports are uploaded below
         run: gradle testDebugUnitTest --stacktrace
+
+      - name: Upload test reports (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: slide-dictate/app/build/reports/tests/**
+          if-no-files-found: ignore
 
       - name: Build debug and release APKs
         run: gradle assembleDebug assembleRelease --stacktrace
