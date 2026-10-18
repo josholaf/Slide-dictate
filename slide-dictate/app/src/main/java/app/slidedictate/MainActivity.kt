@@ -128,7 +128,7 @@ class MainActivity : Activity() {
             setTypeface(typeface, Typeface.BOLD)
         })
         root.addView(TextView(this).apply {
-            text = "Dictation from a handle on the screen edge. Audio stays on the phone."
+            text = L["tagline"]
             textSize = 15f; setTextColor(c.sub); setPadding(0, dp(6), 0, 0)
         })
 
@@ -145,10 +145,10 @@ class MainActivity : Activity() {
             }
             setOnClickListener { tab = t; render() }
         }
-        bar.addView(tabBtn(Tab.HOME, "Home"), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        bar.addView(tabBtn(Tab.MODEL, "Model"), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(8), 0, dp(8), 0) })
-        bar.addView(tabBtn(Tab.HISTORY, "History"), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(0), 0, dp(8), 0) })
-        bar.addView(tabBtn(Tab.SETTINGS, "Settings"), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        bar.addView(tabBtn(Tab.HOME, L["home"]), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        bar.addView(tabBtn(Tab.MODEL, L["model"]), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(8), 0, dp(8), 0) })
+        bar.addView(tabBtn(Tab.HISTORY, L["history"]), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(0), 0, dp(8), 0) })
+        bar.addView(tabBtn(Tab.SETTINGS, L["settings"]), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(bar)
 
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -169,7 +169,7 @@ class MainActivity : Activity() {
         val model = Prefs.model(this)?.let { id -> ModelStore.models.firstOrNull { it.id == id } }
         val modelReady = model != null && ModelStore.isReady(this, model)
 
-        content.addView(heading(c, "Home"))
+        content.addView(heading(c, L["home"]))
         val st = card(c)
         st.addView(statusLine(micOk, "Microphone allowed", "Microphone not allowed"))
         st.addView(statusLine(svc, "Edge handle service on", "Edge handle service off"))
@@ -183,7 +183,7 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         })
 
-        content.addView(heading(c, "Latest transcription"))
+        content.addView(heading(c, L["latest"]))
         val t = card(c)
         val last = Prefs.lastTranscription(this)
         t.addView(TextView(this).apply {
@@ -195,7 +195,7 @@ class MainActivity : Activity() {
     // ---- Model tab --------------------------------------------------------------
 
     private fun renderModels(c: Ui.Cols) {
-        content.addView(heading(c, "Models"))
+        content.addView(heading(c, L["models"]))
         content.addView(txt(c, "The model in use is highlighted in green.", 13f, 2))
 
         for (m in ModelStore.models) {
@@ -250,7 +250,7 @@ class MainActivity : Activity() {
     // ---- History tab -----------------------------------------------------------
 
     private fun renderHistory(c: Ui.Cols) {
-        content.addView(heading(c, "History"))
+        content.addView(heading(c, L["history"]))
         val items = Prefs.history(this)
 
         if (items.isEmpty()) {
@@ -320,11 +320,11 @@ class MainActivity : Activity() {
     // ---- Settings tab -------------------------------------------------------------
 
     private fun renderSettings(c: Ui.Cols) {
-        content.addView(heading(c, "Appearance"))
+        content.addView(heading(c, L["appearance"]))
         val look = card(c)
-        look.addView(sw(c, "Dark mode", Prefs.darkMode(this)) { on -> Prefs.setDarkMode(this, on); render() })
+        look.addView(sw(c, L["dark_mode"], Prefs.darkMode(this)) { on -> Prefs.setDarkMode(this, on); render() })
 
-        content.addView(heading(c, "Accessibility"))
+        content.addView(heading(c, L["accessibility"]))
         val acc = card(c)
         val micOk = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         acc.addView(statusLine(micOk, "Microphone allowed", "Microphone not allowed"))
@@ -363,18 +363,41 @@ class MainActivity : Activity() {
             }
         })
 
-        content.addView(heading(c, "Edge handle"))
+        content.addView(heading(c, L["edge_handle"]))
         val h = card(c)
-        h.addView(sw(c, "Show handle", Prefs.handleVisible(this)) { on ->
+        h.addView(sw(c, L["show_handle"], Prefs.handleVisible(this)) { on ->
             Prefs.setHandleVisible(this, on); sendHandle(visible = on)
         })
-        h.addView(txt(c, "Up moves the handle toward the top.", 13f, 4))
+        h.addView(txt(c, L["handle_hint"], 13f, 4))
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), 0, 0) }
-        row.addView(btn(c, "Up") { nudgeHandle(-40) }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(btn(c, "Down") { nudgeHandle(40) }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(8) })
+        row.addView(btn(c, L["up"]) { nudgeHandle(-40) }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(btn(c, L["down"]) { nudgeHandle(40) }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(8) })
         h.addView(row)
 
-        content.addView(heading(c, "Dictation"))
+        // Side: left / right edge.
+        val side = Prefs.handleSide(this)
+        addBtn(h, btn(c, L["side"] + ": " + (if (side == "right") "Right" else "Left")) {
+            Prefs.setHandleSide(this, if (side == "right") "left" else "right")
+            sendHandle(rebuild = true); render()
+        })
+        // Size: small / normal / large.
+        val sizes = listOf(80 to "Small", 100 to "Normal", 140 to "Large")
+        val cur = Prefs.handleScale(this)
+        val sizeName = sizes.firstOrNull { it.first == cur }?.second ?: "Normal"
+        addBtn(h, btn(c, L["size"] + ": " + sizeName) {
+            val idx = sizes.indexOfFirst { it.first == cur }
+            Prefs.setHandleScale(this, sizes[(idx + 1) % sizes.size].first)
+            sendHandle(rebuild = true); render()
+        })
+        // Opacity: 60 / 80 / 100 %.
+        val opacities = listOf(60, 80, 100)
+        val curOp = Prefs.handleOpacity(this)
+        addBtn(h, btn(c, L["opacity"] + ": " + (if (opacities.contains(curOp)) curOp else 100) + "%") {
+            Prefs.setHandleOpacity(this, opacities[(opacities.indexOf(curOp) + 1).mod(opacities.size)])
+            sendHandle(rebuild = true); render()
+        })
+
+        content.addView(heading(c, L["dictation"]))
         val d = card(c)
         d.addView(sw(c, "Offline only", Prefs.offlineOnly(this)) { on -> Prefs.setOfflineOnly(this, on) })
         d.addView(sw(c, "Auto punctuation", Prefs.autoPunctuation(this)) { on ->
@@ -391,7 +414,7 @@ class MainActivity : Activity() {
         })
         d.addView(txt(c, "Only applies to multilingual models.", 13f, 4))
 
-        content.addView(heading(c, "About"))
+        content.addView(heading(c, L["about"]))
         val version = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"
         val a = card(c)
         a.addView(TextView(this).apply {
@@ -404,11 +427,12 @@ class MainActivity : Activity() {
 
     // ---- actions ------------------------------------------------------------
 
-    private fun sendHandle(visible: Boolean? = null, offsetYdp: Int? = null) {
+    private fun sendHandle(visible: Boolean? = null, offsetYdp: Int? = null, rebuild: Boolean = false) {
         sendBroadcast(Intent(DictationService.ACTION_HANDLE).apply {
             setPackage(packageName)
             if (visible != null) putExtra(DictationService.EXTRA_VISIBLE, visible)
             if (offsetYdp != null) putExtra(DictationService.EXTRA_OFFSET_Y, offsetYdp)
+            if (rebuild) putExtra(DictationService.EXTRA_REBUILD, true)
         })
     }
 

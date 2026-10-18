@@ -71,6 +71,7 @@ class DictationService : AccessibilityService() {
         private const val UNDO = "\u0001"
         const val EXTRA_VISIBLE = "visible"
         const val EXTRA_OFFSET_Y = "offset_y"
+        const val EXTRA_REBUILD = "rebuild"
     }
 
     private val handleCmd = object : BroadcastReceiver() {
@@ -80,7 +81,16 @@ class DictationService : AccessibilityService() {
                 if (i.getBooleanExtra(EXTRA_VISIBLE, true)) showHandle() else hideHandle()
             }
             if (i.hasExtra(EXTRA_OFFSET_Y)) moveHandle(i.getIntExtra(EXTRA_OFFSET_Y, 0))
+            if (i.getBooleanExtra(EXTRA_REBUILD, false)) rebuildHandle()
         }
+    }
+
+    /** Side / size / opacity changed: redraw the handle from preferences. */
+    private fun rebuildHandle() {
+        handle?.let { runCatching { wm.removeView(it) } }
+        handle = null
+        if (Prefs.handleVisible(this)) addHandle()
+        if (panel != null) handle?.visibility = View.GONE
     }
 
     override fun onServiceConnected() {
@@ -112,36 +122,57 @@ class DictationService : AccessibilityService() {
     // ---- overlay ----------------------------------------------------------
 
     private fun addHandle() {
+        val scale = Prefs.handleScale(this) / 100f
+        val left = Prefs.handleSide(this) == "left"
         val r = dp(10).toFloat()
         val pill = View(this).apply {
             background = GradientDrawable().apply {
                 setColor(0xFF0D6A6A.toInt())
-                cornerRadii = floatArrayOf(r, r, 0f, 0f, 0f, 0f, r, r)
+                if (left) cornerRadii = floatArrayOf(0f, 0f, r, r, r, r, 0f, 0f)
+                else cornerRadii = floatArrayOf(r, r, 0f, 0f, 0f, 0f, r, r)
             }
         }
         val dock = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             var downX = 0f
+            var downY = 0f
+            var startOffset = 0
+            var dragged = false
             setOnTouchListener { _, ev ->
                 when (ev.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> downX = ev.rawX
+                    MotionEvent.ACTION_DOWN -> {
+                        downX = ev.rawX; downY = ev.rawY; dragged = false
+                        startOffset = Prefs.handleOffsetY(this@DictationService)
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (abs(ev.rawY - downY) > dp(8)) dragged = true
+                        val dYdp = ((ev.rawY - downY) / resources.displayMetrics.density).toInt()
+                        val off = (startOffset + dYdp).coerceIn(-320, 320)
+                        Prefs.setHandleOffsetY(this@DictationService, off)
+                        moveHandle(off)
+                    }
                     MotionEvent.ACTION_UP -> {
                         val dx = ev.rawX - downX
-                        if (dx < -dp(16) || abs(dx) < dp(6)) showPanel()
+                        val slide = if (left) dx > dp(16) else dx < -dp(16)
+                        if (!dragged && (slide || abs(dx) < dp(6))) showPanel()
                     }
                 }
                 true
             }
-            addView(pill, LinearLayout.LayoutParams(dp(22), dp(96)).apply {
-                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            addView(pill, LinearLayout.LayoutParams((dp(22) * scale).toInt(), (dp(96) * scale).toInt()).apply {
+                gravity = (if (left) Gravity.START else Gravity.END) or Gravity.CENTER_VERTICAL
             })
+            alpha = (Prefs.handleOpacity(this) / 100f).coerceIn(0.3f, 1f)
         }
         val lp = WindowManager.LayoutParams(
-            dp(64), dp(160),
+            (dp(64) * scale).toInt(), (dp(160) * scale).toInt(),
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; y = dp(Prefs.handleOffsetY(this@DictationService)) }
+        ).apply {
+            gravity = (if (left) Gravity.START else Gravity.END) or Gravity.CENTER_VERTICAL
+            y = dp(Prefs.handleOffsetY(this@DictationService))
+        }
         wm.addView(dock, lp)
         handle = dock
     }
