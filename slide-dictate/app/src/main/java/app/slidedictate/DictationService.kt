@@ -422,6 +422,7 @@ class DictationService : AccessibilityService() {
 
     private fun insert(text: String) {
         if (text.isBlank()) { setStatus("Heard nothing."); return }
+        Prefs.setLastTranscription(this, text)
         val node = focusedEditable()
         if (node == null) { copy(text); setStatus("No text field is focused. Copied instead."); return }
         node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
