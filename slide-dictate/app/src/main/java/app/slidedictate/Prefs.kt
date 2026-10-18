@@ -24,4 +24,15 @@ object Prefs {
     /** Last text the dictation service inserted, shown on the Home tab. */
     fun lastTranscription(c: Context): String? = sp(c).getString("last_text", null)
     fun setLastTranscription(c: Context, t: String) = sp(c).edit().putString("last_text", t).apply()
+
+    /** Whisper punctuation on the inserted text; when off, sentence punctuation is stripped. */
+    fun autoPunctuation(c: Context) = sp(c).getBoolean("auto_punctuation", true)
+    fun setAutoPunctuation(c: Context, v: Boolean) = sp(c).edit().putBoolean("auto_punctuation", v).apply()
+
+    /**
+     * Whisper language code for multilingual models ("auto" = detect).
+     * English-only models ignore this.
+     */
+    fun language(c: Context) = sp(c).getString("language", "auto") ?: "auto"
+    fun setLanguage(c: Context, v: String) = sp(c).edit().putString("language", v).apply()
 }
