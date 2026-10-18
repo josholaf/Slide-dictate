@@ -4,6 +4,10 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -263,6 +267,25 @@ class MainActivity : Activity() {
         if (!svc) addBtn(acc, btn(c, "Open accessibility settings") {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         })
+        if (Build.VERSION.SDK_INT >= 34) {
+            val muted = getSystemService(AudioManager::class.java).isMicrophoneMute
+            acc.addView(statusLine(!muted,
+                "Microphone live (Android 14+ foreground capture kept allowed by the recording notification)",
+                "Microphone is muted — unmute the phone to dictate"))
+        }
+
+        // Battery optimization silently kills long dictations on many phones.
+        val pm = getSystemService(PowerManager::class.java)
+        val battOk = runCatching { pm.isIgnoringBatteryOptimizations }.getOrDefault(false)
+        acc.addView(statusLine(battOk,
+            "Battery optimization ignored",
+            "Battery optimization may stop dictation early"))
+        if (!battOk) addBtn(acc, btn(c, "Ignore battery optimizations") {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:" + packageName)))
+            }
+        })
 
         content.addView(heading(c, "Edge handle"))
         val h = card(c)
@@ -278,6 +301,19 @@ class MainActivity : Activity() {
         content.addView(heading(c, "Dictation"))
         val d = card(c)
         d.addView(sw(c, "Offline only", Prefs.offlineOnly(this)) { on -> Prefs.setOfflineOnly(this, on) })
+        d.addView(sw(c, "Auto punctuation", Prefs.autoPunctuation(this)) { on ->
+            Prefs.setAutoPunctuation(this, on)
+        })
+        d.addView(txt(c, "Voice commands: say \"new paragraph\", \"new line\" or \"scratch that\".", 13f, 8))
+
+        val langs = listOf("auto", "en", "fr", "es", "sw")
+        val langNames = mapOf("auto" to "Auto detect", "en" to "English", "fr" to "French", "es" to "Spanish", "sw" to "Swahili")
+        d.addView(btn(c, "Language: " + (langNames[Prefs.language(this)] ?: Prefs.language(this))) {
+            val next = langs[(langs.indexOf(Prefs.language(this)) + 1) % langs.size]
+            Prefs.setLanguage(this, next)
+            render()
+        })
+        d.addView(txt(c, "Only applies to multilingual models.", 13f, 4))
 
         content.addView(heading(c, "About"))
         val version = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"
