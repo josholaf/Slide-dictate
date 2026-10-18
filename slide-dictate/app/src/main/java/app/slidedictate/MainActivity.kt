@@ -2,8 +2,14 @@ package app.slidedictate
 
 import android.Manifest
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -15,6 +21,8 @@ import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import java.text.DateFormat
+import java.util.Date
 
 /**
  * App screen with a toolbar of three tabs:
@@ -24,7 +32,7 @@ import android.widget.Toast
  */
 class MainActivity : Activity() {
 
-    private enum class Tab { HOME, MODEL, SETTINGS }
+    private enum class Tab { HOME, MODEL, HISTORY, SETTINGS }
 
     private var tab = Tab.HOME
     private val progress = HashMap<String, Int>()
@@ -139,6 +147,7 @@ class MainActivity : Activity() {
         }
         bar.addView(tabBtn(Tab.HOME, "Home"), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         bar.addView(tabBtn(Tab.MODEL, "Model"), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(8), 0, dp(8), 0) })
+        bar.addView(tabBtn(Tab.HISTORY, "History"), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(0), 0, dp(8), 0) })
         bar.addView(tabBtn(Tab.SETTINGS, "Settings"), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(bar)
 
@@ -147,6 +156,7 @@ class MainActivity : Activity() {
         when (tab) {
             Tab.HOME -> renderHome(c)
             Tab.MODEL -> renderModels(c)
+            Tab.HISTORY -> renderHistory(c)
             Tab.SETTINGS -> renderSettings(c)
         }
     }
@@ -237,6 +247,76 @@ class MainActivity : Activity() {
         }
     }
 
+    // ---- History tab -----------------------------------------------------------
+
+    private fun renderHistory(c: Ui.Cols) {
+        content.addView(heading(c, "History"))
+        val items = Prefs.history(this)
+
+        if (items.isEmpty()) {
+            content.addView(txt(c, "Nothing yet. Every dictation is kept here.", 15f, 12))
+            return
+        }
+
+        val fmt = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(12), 0, 0) }
+        top.addView(btn(c, "Share all") { shareText(items.joinToString("\n\n") { it.first }) },
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        top.addView(btn(c, "Clear all") { Prefs.clearHistory(this); render() },
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(8) })
+        content.addView(top)
+
+        // Newest first.
+        for ((index, pair) in items.asReversed().withIndex()) {
+            val (text, time) = pair
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(14), dp(12), dp(14), dp(12))
+                background = GradientDrawable().apply {
+                    setColor(c.surface); cornerRadius = dp(16).toFloat(); setStroke(dp(1), c.stroke)
+                }
+            }
+            val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            head.addView(TextView(this).apply {
+                text = fmt.format(Date(time)); textSize = 12f; setTextColor(c.sub)
+                setTypeface(typeface, Typeface.BOLD)
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            head.addView(TextView(this).apply {
+                text = "✕"; textSize = 16f; setTextColor(c.sub); setPadding(dp(12), 0, 0, 0)
+                setOnClickListener {
+                    Prefs.setHistory(this@MainActivity, items.toMutableList().also { it.removeAt(items.size - 1 - index) })
+                    render()
+                }
+            })
+            item.addView(head)
+            item.addView(TextView(this).apply {
+                text = text; textSize = 15f; setTextColor(c.ink); setPadding(0, dp(6), 0, 0)
+            })
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), 0, 0) }
+            row.addView(btn(c, "Copy") { copyText(text) },
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+            row.addView(btn(c, "Share") { shareText(text) },
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(8) })
+            item.addView(row)
+
+            content.addView(item, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })
+        }
+    }
+
+    private fun copyText(t: String) {
+        val cm = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText("dictation", t))
+        Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun shareText(t: String) {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, t)
+        }
+        runCatching { startActivity(Intent.createChooser(send, "Share dictation")) }
+    }
+
     // ---- Settings tab -------------------------------------------------------------
 
     private fun renderSettings(c: Ui.Cols) {
@@ -263,6 +343,25 @@ class MainActivity : Activity() {
         if (!svc) addBtn(acc, btn(c, "Open accessibility settings") {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         })
+        if (Build.VERSION.SDK_INT >= 34) {
+            val muted = getSystemService(AudioManager::class.java).isMicrophoneMute
+            acc.addView(statusLine(!muted,
+                "Microphone live (Android 14+ foreground capture kept allowed by the recording notification)",
+                "Microphone is muted — unmute the phone to dictate"))
+        }
+
+        // Battery optimization silently kills long dictations on many phones.
+        val pm = getSystemService(PowerManager::class.java)
+        val battOk = runCatching { pm.isIgnoringBatteryOptimizations }.getOrDefault(false)
+        acc.addView(statusLine(battOk,
+            "Battery optimization ignored",
+            "Battery optimization may stop dictation early"))
+        if (!battOk) addBtn(acc, btn(c, "Ignore battery optimizations") {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:" + packageName)))
+            }
+        })
 
         content.addView(heading(c, "Edge handle"))
         val h = card(c)
@@ -278,6 +377,19 @@ class MainActivity : Activity() {
         content.addView(heading(c, "Dictation"))
         val d = card(c)
         d.addView(sw(c, "Offline only", Prefs.offlineOnly(this)) { on -> Prefs.setOfflineOnly(this, on) })
+        d.addView(sw(c, "Auto punctuation", Prefs.autoPunctuation(this)) { on ->
+            Prefs.setAutoPunctuation(this, on)
+        })
+        d.addView(txt(c, "Voice commands: say \"new paragraph\", \"new line\" or \"scratch that\".", 13f, 8))
+
+        val langs = listOf("auto", "en", "fr", "es", "sw")
+        val langNames = mapOf("auto" to "Auto detect", "en" to "English", "fr" to "French", "es" to "Spanish", "sw" to "Swahili")
+        d.addView(btn(c, "Language: " + (langNames[Prefs.language(this)] ?: Prefs.language(this))) {
+            val next = langs[(langs.indexOf(Prefs.language(this)) + 1) % langs.size]
+            Prefs.setLanguage(this, next)
+            render()
+        })
+        d.addView(txt(c, "Only applies to multilingual models.", 13f, 4))
 
         content.addView(heading(c, "About"))
         val version = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"

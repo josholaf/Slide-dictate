@@ -7,7 +7,7 @@ import java.io.File
  * Runs CPU-only so it works on any arm64 / arm32 / x86_64 device, offline.
  * Throws if the native lib or model cannot be loaded; callers fall back to stub.
  */
-class WhisperEngine(modelFile: File) : Transcriber {
+class WhisperEngine(modelFile: File, language: String = "auto") : Transcriber {
 
     private var handle: Long = 0L
     private var closed = false
@@ -15,8 +15,9 @@ class WhisperEngine(modelFile: File) : Transcriber {
     init {
         val err = loadError
         check(err == null) { "native lib missing: $err" }
-        // Multilingual ggml models (no ".en" in the name) get language detection.
-        val lang = if (modelFile.name.contains(".en.")) "en" else "auto"
+        // Multilingual ggml models (no ".en." in the name) use the chosen language
+        // (or auto-detect). English-only models always use "en".
+        val lang = if (modelFile.name.contains(".en.")) "en" else language
         handle = nativeInit(modelFile.absolutePath, lang)
         check(handle != 0L) { "whisper init failed for ${modelFile.name}" }
     }

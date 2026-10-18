@@ -57,9 +57,18 @@ class DictationService : AccessibilityService() {
 
     private var engine: Transcriber? = null
     private var engineFile: String? = null
+    private var engineLang: String? = null
+
+    /** Everything dictated in the current session, for the live "You: ..." preview. */
+    private val sessionText = StringBuilder()
+
+    /** The exact string last inserted, so "scratch that" can remove it. */
+    private var lastInsert: String? = null
 
     companion object {
         const val ACTION_HANDLE = "app.slidedictate.HANDLE"
+        /** Sentinel returned by processText for the "scratch that" command. */
+        private const val UNDO = "\u0001"
         const val EXTRA_VISIBLE = "visible"
         const val EXTRA_OFFSET_Y = "offset_y"
     }
@@ -256,10 +265,12 @@ class DictationService : AccessibilityService() {
     }
 
     private fun engineFor(f: File): Transcriber {
-        if (engineFile != f.name) {
+        val lang = Prefs.language(this)
+        if (engineFile != f.name || engineLang != lang) {
             engine?.close()
-            engine = Engines.load(f)
+            engine = Engines.load(f, lang)
             engineFile = f.name
+            engineLang = lang
             val err = Engines.lastLoadError
             main.post {
                 setStatus(if (err == null) "Engine: whisper.cpp ready."
@@ -279,6 +290,8 @@ class DictationService : AccessibilityService() {
         recorder.onChunk = { pcm -> chunkQ.offer(pcm) }
         if (!recorder.start()) { recorder.onChunk = null; setStatus("The microphone is busy or blocked."); return }
         recording = true
+        sessionText.setLength(0)
+        lastInsert = null
         startMicHold()
         micBtn?.text = "Stop"
         setStatus("Listening... pause and text appears as you speak.")
@@ -298,19 +311,68 @@ class DictationService : AccessibilityService() {
     }
 
     private fun transcribeChunk(pcm: ShortArray) {
+        // Skip near-silent chunks so the engine is not run on breath and room noise.
+        if (!Recorder.audible(pcm)) return
         val file = modelFile()
         if (file == null) {
             main.post { setStatus("Open Slide Dictate, download a model, and tap Use.") }
             return
         }
-        val text = try {
+        val raw = try {
             engineFor(file).transcribe(pcm, Recorder.RATE).trim()
         } catch (t: Throwable) {
             main.post { setStatus("Transcription failed: ${t.message}") }
             return
         }
-        chunksDone++
-        main.post { insert(text) }
+        val text = processText(raw)
+        when (text) {
+            null -> Unit
+            UNDO -> { chunksDone++; main.post { undoLast() } }
+            else -> {
+                chunksDone++
+                sessionText.append(if (sessionText.isNotEmpty()) " " else "").append(text)
+                main.post {
+                    insert(text)
+                    setStatus("You: " + sessionText.toString().takeLast(90))
+                }
+            }
+        }
+    }
+
+    /**
+     * Voice commands + punctuation preference.
+     * Returns null for nothing usable, [UNDO] for "scratch that".
+     */
+    private fun processText(text: String): String? {
+        var t = text.trim()
+        if (t.isEmpty()) return null
+        if (Regex("\\bscratch that\\b", RegexOption.IGNORE_CASE).containsMatchIn(t)) return UNDO
+        t = t.replace(Regex("\\bnew paragraph\\b", RegexOption.IGNORE_CASE), "\n\n")
+        t = t.replace(Regex("\\bnew line\\b", RegexOption.IGNORE_CASE), "\n")
+        if (!Prefs.autoPunctuation(this)) t = t.replace(Regex("[.,!?;:]"), "")
+        return t.trim().ifEmpty { null }
+    }
+
+    /** "Scratch that": remove the last insertion from the focused text field. */
+    private fun undoLast() {
+        val last = lastInsert
+        if (last == null) { setStatus("Nothing to undo yet."); return }
+        val node = focusedEditable()
+        if (node == null) { setStatus("No text field is focused."); return }
+        val cur = node.text?.toString().orEmpty()
+        val idx = cur.lastIndexOf(last)
+        if (idx < 0) { setStatus("Could not find the last insertion."); return }
+        val out = cur.removeRange(idx, idx + last.length)
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, out)
+        }
+        if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
+            lastInsert = null
+            Prefs.setLastTranscription(this, out)
+            setStatus("Removed the last insertion.")
+        } else {
+            setStatus("Could not undo in this field.")
+        }
     }
 
     private fun stopOffline(): ShortArray {
@@ -423,6 +485,7 @@ class DictationService : AccessibilityService() {
     private fun insert(text: String) {
         if (text.isBlank()) { setStatus("Heard nothing."); return }
         Prefs.setLastTranscription(this, text)
+        Prefs.addHistory(this, text)
         val node = focusedEditable()
         if (node == null) { copy(text); setStatus("No text field is focused. Copied instead."); return }
         node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
@@ -437,6 +500,7 @@ class DictationService : AccessibilityService() {
         val args = Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, out)
         }
+        lastInsert = added
         if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
             val pos = s + added.length
             val sel = Bundle().apply {

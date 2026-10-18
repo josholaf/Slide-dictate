@@ -13,8 +13,8 @@ object Engines {
     @Volatile var lastLoadError: String? = null
 
     /** Real whisper.cpp engine when the native lib + model load, stub otherwise. */
-    fun load(modelFile: File): Transcriber = try {
-        WhisperEngine(modelFile).also { lastLoadError = null }
+    fun load(modelFile: File, language: String = "auto"): Transcriber = try {
+        WhisperEngine(modelFile, language).also { lastLoadError = null }
     } catch (t: Throwable) {
         lastLoadError = t.message ?: t.toString()
         StubTranscriber(modelFile.name)
