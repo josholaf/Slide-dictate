@@ -17,4 +17,11 @@ object Prefs {
 
     fun handleVisible(c: Context) = sp(c).getBoolean("handle_visible", true)
     fun setHandleVisible(c: Context, v: Boolean) = sp(c).edit().putBoolean("handle_visible", v).apply()
+
+    fun darkMode(c: Context) = sp(c).getBoolean("dark_mode", false)
+    fun setDarkMode(c: Context, v: Boolean) = sp(c).edit().putBoolean("dark_mode", v).apply()
+
+    /** Last text the dictation service inserted, shown on the Home tab. */
+    fun lastTranscription(c: Context): String? = sp(c).getString("last_text", null)
+    fun setLastTranscription(c: Context, t: String) = sp(c).edit().putString("last_text", t).apply()
 }
