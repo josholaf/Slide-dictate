@@ -50,6 +50,15 @@ jobs:
       - name: Build debug and release APKs
         run: gradle assembleDebug assembleRelease --stacktrace
 
+      - name: Show APK native libs (run summary)
+        run: |
+          {
+            echo "## Native libs in app-debug.apk"
+            unzip -l app/build/outputs/apk/debug/app-debug.apk | grep ".so" || echo "NO .so FILES - stub only!"
+            echo "## whisper.cpp checkout"
+            ls app/src/main/cpp/whisper.cpp/whisper.cpp 2>/dev/null || echo "whisper.cpp NOT cloned"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:

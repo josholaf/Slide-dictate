@@ -256,7 +256,16 @@ class DictationService : AccessibilityService() {
     }
 
     private fun engineFor(f: File): Transcriber {
-        if (engineFile != f.name) { engine?.close(); engine = Engines.load(f); engineFile = f.name }
+        if (engineFile != f.name) {
+            engine?.close()
+            engine = Engines.load(f)
+            engineFile = f.name
+            val err = Engines.lastLoadError
+            main.post {
+                setStatus(if (err == null) "Engine: whisper.cpp ready."
+                           else "STUB engine - real one failed: " + err)
+            }
+        }
         return engine!!
     }
 
