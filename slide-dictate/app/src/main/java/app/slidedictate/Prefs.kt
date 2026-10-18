@@ -1,8 +1,11 @@
 package app.slidedictate
 
 import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
 
 object Prefs {
+    private const val HISTORY_CAP = 200
     private fun sp(c: Context) = c.getSharedPreferences("prefs", Context.MODE_PRIVATE)
 
     fun offlineOnly(c: Context) = sp(c).getBoolean("offline", true)
@@ -35,4 +38,33 @@ object Prefs {
      */
     fun language(c: Context) = sp(c).getString("language", "auto") ?: "auto"
     fun setLanguage(c: Context, v: String) = sp(c).edit().putString("language", v).apply()
+
+    /**
+     * Dictation history, most recent last. Stored as a JSON array of
+     * {"t": text, "ts": epoch millis}, capped at [HISTORY_CAP] entries.
+     */
+    fun history(c: Context): List<Pair<String, Long>> {
+        val a = runCatching { JSONArray(sp(c).getString("history", "[]")) }.getOrElse { JSONArray() }
+        return (0 until a.length()).map { i ->
+            val o = a.getJSONObject(i)
+            o.getString("t") to o.getLong("ts")
+        }
+    }
+
+    fun addHistory(c: Context, text: String, time: Long = System.currentTimeMillis()) {
+        if (text.isBlank()) return
+        val a = runCatching { JSONArray(sp(c).getString("history", "[]")) }.getOrElse { JSONArray() }
+        a.put(JSONObject().put("t", text).put("ts", time))
+        while (a.length() > HISTORY_CAP) a.remove(0)
+        sp(c).edit().putString("history", a.toString()).apply()
+    }
+
+    fun setHistory(c: Context, items: List<Pair<String, Long>>) {
+        val a = JSONArray()
+        for ((t, ts) in items) a.put(JSONObject().put("t", t).put("ts", ts))
+        sp(c).edit().putString("history", a.toString()).apply()
+    }
+
+    fun clearHistory(c: Context) = sp(c).edit().remove("history").apply()
+}
 }
