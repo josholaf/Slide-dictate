@@ -66,5 +66,17 @@ object Prefs {
     }
 
     fun clearHistory(c: Context) = sp(c).edit().remove("history").apply()
-}
+
+    /** Screen edge the handle sits on: "left" or "right". */
+    fun handleSide(c: Context) = sp(c).getString("handle_side", "right") ?: "right"
+    fun setHandleSide(c: Context, v: String) = sp(c).edit().putString("handle_side", v).apply()
+
+    /** Handle size in percent (80 small, 100 normal, 140 large). */
+    fun handleScale(c: Context) = sp(c).getInt("handle_scale", 100)
+    fun setHandleScale(c: Context, v: Int) = sp(c).edit().putInt("handle_scale", v).apply()
+
+    /** Handle opacity in percent (60, 80 or 100). */
+    fun handleOpacity(c: Context) = sp(c).getInt("handle_opacity", 100)
+    fun setHandleOpacity(c: Context, v: Int) = sp(c).edit().putInt("handle_opacity", v).apply()
+
 }
