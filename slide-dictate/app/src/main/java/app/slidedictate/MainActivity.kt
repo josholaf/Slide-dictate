@@ -322,7 +322,11 @@ class MainActivity : Activity() {
     private fun renderSettings(c: Ui.Cols) {
         content.addView(heading(c, L["appearance"]))
         val look = card(c)
-        look.addView(sw(c, L["dark_mode"], Prefs.darkMode(this)) { on -> Prefs.setDarkMode(this, on); render() })
+        look.addView(sw(c, L["dark_mode"], Prefs.darkMode(this)) { on ->
+            Prefs.setDarkMode(this, on)
+            sendHandle(rebuild = true) // edge handle + panel follow the new palette
+            render()
+        })
 
         content.addView(heading(c, L["accessibility"]))
         val acc = card(c)
