@@ -66,7 +66,6 @@ object Prefs {
     }
 
     fun clearHistory(c: Context) = sp(c).edit().remove("history").apply()
-}
 
     /** Screen edge the handle sits on: "left" or "right". */
     fun handleSide(c: Context) = sp(c).getString("handle_side", "right") ?: "right"
