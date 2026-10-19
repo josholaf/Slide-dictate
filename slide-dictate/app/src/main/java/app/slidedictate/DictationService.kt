@@ -122,12 +122,13 @@ class DictationService : AccessibilityService() {
     // ---- overlay ----------------------------------------------------------
 
     private fun addHandle() {
+        val c = Ui.cols(this)
         val scale = Prefs.handleScale(this) / 100f
         val left = Prefs.handleSide(this) == "left"
         val r = dp(10).toFloat()
         val pill = View(this).apply {
             background = GradientDrawable().apply {
-                setColor(0xFF0D6A6A.toInt())
+                setColor(c.accent)
                 if (left) cornerRadii = floatArrayOf(0f, 0f, r, r, r, r, 0f, 0f)
                 else cornerRadii = floatArrayOf(r, r, 0f, 0f, 0f, 0f, r, r)
             }
@@ -197,7 +198,8 @@ class DictationService : AccessibilityService() {
 
     private fun showPanel() {
         if (panel != null) return
-        val ink = 0xFF12222B.toInt()
+        val c = Ui.cols(this)
+        val ink = c.ink
 
         val title = TextView(this).apply { text = "Dictate"; textSize = 16f; setTextColor(ink) }
         val close = TextView(this).apply {
@@ -210,13 +212,17 @@ class DictationService : AccessibilityService() {
             addView(close)
         }
         val mic = Button(this).apply {
-            text = "Start dictation"
+            text = "Start dictation"; textSize = 14f; setTextColor(c.ink); isAllCaps = false
+            setPadding(dp(16), 0, dp(16), 0)
+            background = GradientDrawable().apply {
+                setColor(c.surface); cornerRadius = dp(12).toFloat(); setStroke(dp(1), c.stroke)
+            }
             setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_mic_audio_lines, 0, 0, 0)
             setOnClickListener { toggleRecording() }
         }
         val st = TextView(this).apply { text = "Tap start, speak, tap stop."; setTextColor(ink); textSize = 14f }
         val mode = TextView(this).apply {
-            textSize = 12f; setTextColor(0xFF5A6B72.toInt())
+            textSize = 12f; setTextColor(c.sub)
             setPadding(0, dp(2), 0, dp(6))
         }
         val offline = Switch(this).apply {
@@ -232,7 +238,7 @@ class DictationService : AccessibilityService() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(14), dp(16), dp(14))
             background = GradientDrawable().apply {
-                setColor(0xFFFFFFFF.toInt()); cornerRadius = dp(20).toFloat(); setStroke(dp(1), 0xFFCBD7DC.toInt())
+                setColor(c.surface); cornerRadius = dp(20).toFloat(); setStroke(dp(1), c.stroke)
             }
             addView(head)
             addView(mic)
@@ -342,8 +348,8 @@ class DictationService : AccessibilityService() {
     }
 
     private fun transcribeChunk(pcm: ShortArray) {
-        // Skip near-silent chunks so the engine is not run on breath and room noise.
-        if (!Recorder.audible(pcm)) return
+        // No silence gate here: Recorder already splits on silence, and its trailing
+        // 1.2 s of silence made the old audible() check drop quiet/short speech.
         val file = modelFile()
         if (file == null) {
             main.post { setStatus("Open Slide Dictate, download a model, and tap Use.") }
@@ -485,7 +491,9 @@ class DictationService : AccessibilityService() {
         if (online != null) { stopOnline(); return }
         if (!recording) return
         val rest = stopOffline()
-        if (Recorder.audible(rest)) {
+        // Transcribe any non-empty tail; audible() rejects takes under 0.5 s,
+        // which threw away short final phrases.
+        if (rest.isNotEmpty()) {
             setStatus("Transcribing...")
             chunkQ.offer(rest)
         } else if (chunksDone == 0) {
