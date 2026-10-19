@@ -163,7 +163,7 @@ class DictationService : AccessibilityService() {
             addView(pill, LinearLayout.LayoutParams((dp(22) * scale).toInt(), (dp(96) * scale).toInt()).apply {
                 gravity = (if (left) Gravity.START else Gravity.END) or Gravity.CENTER_VERTICAL
             })
-            alpha = (Prefs.handleOpacity(this) / 100f).coerceIn(0.3f, 1f)
+            alpha = (Prefs.handleOpacity(this@DictationService) / 100f).coerceIn(0.3f, 1f)
         }
         val lp = WindowManager.LayoutParams(
             (dp(64) * scale).toInt(), (dp(160) * scale).toInt(),
