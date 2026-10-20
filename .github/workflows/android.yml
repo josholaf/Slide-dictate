@@ -37,7 +37,9 @@ jobs:
       - name: Run unit tests
         id: tests
         continue-on-error: true   # do not block the APK build; reports are uploaded below
-        run: gradle testDebugUnitTest --stacktrace
+        run: |
+          set -o pipefail
+          gradle testDebugUnitTest --stacktrace 2>&1 | tee ../gradle-test.log
 
       - name: Upload test reports (always)
         if: always()
@@ -48,7 +50,9 @@ jobs:
           if-no-files-found: ignore
 
       - name: Build debug and release APKs
-        run: gradle assembleDebug assembleRelease --stacktrace
+        run: |
+          set -o pipefail
+          gradle assembleDebug assembleRelease --stacktrace 2>&1 | tee ../gradle-build.log
 
       - name: Show APK native libs (run summary)
         run: |
@@ -58,6 +62,20 @@ jobs:
             echo "## whisper.cpp checkout"
             ls app/src/main/cpp/whisper.cpp/whisper.cpp 2>/dev/null || echo "whisper.cpp NOT cloned"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish build failure details (run summary, always)
+        if: always()
+        run: |
+          {
+            echo "## Gradle test log (errors)"
+            grep -nE "^e: |error: |FAILURE|^What went wrong|Caused by" ../gradle-test.log | head -40 || echo "(no error lines; step may have passed)"
+            echo ""
+            echo "## Gradle build log (errors)"
+            grep -nE "^e: |error: |FAILURE|^What went wrong|Caused by|BUILD FAILED" ../gradle-build.log | head -40 || echo "(no error lines; step may have passed)"
+            echo ""
+            echo "## Gradle build log (last 30 lines)"
+            tail -n 30 ../gradle-build.log
+          } >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
