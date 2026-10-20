@@ -37,9 +37,7 @@ jobs:
       - name: Run unit tests
         id: tests
         continue-on-error: true   # do not block the APK build; reports are uploaded below
-        run: |
-          set -o pipefail
-          gradle testDebugUnitTest --stacktrace 2>&1 | tee ../gradle-test.log
+        run: gradle testDebugUnitTest --stacktrace
 
       - name: Upload test reports (always)
         if: always()
@@ -50,9 +48,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Build debug and release APKs
-        run: |
-          set -o pipefail
-          gradle assembleDebug assembleRelease --stacktrace 2>&1 | tee ../gradle-build.log
+        run: gradle assembleDebug assembleRelease --stacktrace
 
       - name: Show APK native libs (run summary)
         run: |
@@ -62,35 +58,6 @@ jobs:
             echo "## whisper.cpp checkout"
             ls app/src/main/cpp/whisper.cpp/whisper.cpp 2>/dev/null || echo "whisper.cpp NOT cloned"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Publish build failure details (run summary, always)
-        if: always()
-        run: |
-          {
-            echo "## Gradle test log (errors)"
-            grep -nE "^e: |error: |FAILURE|^What went wrong|Caused by" ../gradle-test.log | head -40 || echo "(no error lines; step may have passed)"
-            echo ""
-            echo "## Gradle build log (errors)"
-            grep -nE "^e: |error: |FAILURE|^What went wrong|Caused by|BUILD FAILED" ../gradle-build.log | head -40 || echo "(no error lines; step may have passed)"
-            echo ""
-            echo "## Gradle build log (last 30 lines)"
-            tail -n 30 ../gradle-build.log
-          } >> "$GITHUB_STEP_SUMMARY" || true
-
-      # Job logs are not viewable by unauthenticated users; commit them to the repo
-      # so the failure can be diagnosed without log access. [skip ci] avoids loops.
-      - name: Commit CI logs to the repo (always)
-        if: always() && github.ref == 'refs/heads/main'
-        run: |
-          cd ..
-          mkdir -p .github/ci-logs
-          cp gradle-test.log gradle-build.log .github/ci-logs/ 2>/dev/null || true
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/ci-logs || true
-          git diff --cached --quiet && echo "nothing to commit" && exit 0
-          git commit -m "chore: upload CI gradle logs for diagnosis [skip ci]"
-          git push
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
