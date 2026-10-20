@@ -268,7 +268,7 @@ class MainActivity : Activity() {
 
         // Newest first.
         for ((index, pair) in items.asReversed().withIndex()) {
-            val (text, time) = pair
+            val (entryText, time) = pair
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(14), dp(12), dp(14), dp(12))
@@ -290,12 +290,12 @@ class MainActivity : Activity() {
             })
             item.addView(head)
             item.addView(TextView(this).apply {
-                text = text; textSize = 15f; setTextColor(c.ink); setPadding(0, dp(6), 0, 0)
+                text = entryText; textSize = 15f; setTextColor(c.ink); setPadding(0, dp(6), 0, 0)
             })
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), 0, 0) }
-            row.addView(btn(c, "Copy") { copyText(text) },
+            row.addView(btn(c, "Copy") { copyText(entryText) },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-            row.addView(btn(c, "Share") { shareText(text) },
+            row.addView(btn(c, "Share") { shareText(entryText) },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(8) })
             item.addView(row)
 
@@ -356,7 +356,7 @@ class MainActivity : Activity() {
 
         // Battery optimization silently kills long dictations on many phones.
         val pm = getSystemService(PowerManager::class.java)
-        val battOk = runCatching { pm.isIgnoringBatteryOptimizations }.getOrDefault(false)
+        val battOk = runCatching { pm.isIgnoringBatteryOptimizations(packageName) }.getOrDefault(false)
         acc.addView(statusLine(battOk,
             "Battery optimization ignored",
             "Battery optimization may stop dictation early"))
