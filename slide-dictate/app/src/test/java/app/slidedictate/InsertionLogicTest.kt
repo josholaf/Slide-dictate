@@ -35,8 +35,6 @@ class InsertionLogicTest {
     }
 
     @Test fun multilineKeepsSmartSpace() {
-        assertEquals("line one
-next", build("line one
-", 9, 9, "next"))
+        assertEquals("line one\nnext", build("line one\n", 9, 9, "next"))
     }
 }
