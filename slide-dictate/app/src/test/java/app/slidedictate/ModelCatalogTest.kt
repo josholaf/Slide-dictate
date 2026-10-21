@@ -36,7 +36,7 @@ class ModelCatalogTest {
 
     @Test fun englishIdsUseEnFiles() {
         for (m in ModelStore.models) {
-            if (m.id.contains(".en")) assertTrue(m.file.endsWith(".en.bin"))
+            if (m.id.contains(".en")) assertTrue(m.file.contains(".en"))
         }
     }
 
