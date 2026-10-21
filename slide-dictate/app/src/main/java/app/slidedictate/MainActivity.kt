@@ -120,9 +120,10 @@ class MainActivity : Activity() {
         val c = Ui.cols(this)
         window.statusBarColor = c.bg
         root.setBackgroundColor(c.bg)
-        root.setPadding(dp(20), dp(32), dp(20), dp(32))
+        root.setPadding(dp(20), dp(32), dp(20), dp(20))
         root.removeAllViews()
 
+        // App title and tagline at the top
         root.addView(TextView(this).apply {
             text = "Slide Dictate"; textSize = 26f; setTextColor(c.ink)
             setTypeface(typeface, Typeface.BOLD)
@@ -132,8 +133,20 @@ class MainActivity : Activity() {
             textSize = 15f; setTextColor(c.sub); setPadding(0, dp(6), 0, 0)
         })
 
-        // toolbar: Home | Model | Settings
-        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(20), 0, 0) }
+        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(content, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        when (tab) {
+            Tab.HOME -> renderHome(c)
+            Tab.MODEL -> renderModels(c)
+            Tab.HISTORY -> renderHistory(c)
+            Tab.SETTINGS -> renderSettings(c)
+        }
+
+        // toolbar: Home | Model | History | Settings at the bottom
+        val bar = LinearLayout(this).apply { 
+            orientation = LinearLayout.HORIZONTAL; 
+            setPadding(0, dp(16), 0, 0)
+        }
         fun tabBtn(t: Tab, label: String) = TextView(this).apply {
             text = label; textSize = 15f; gravity = Gravity.CENTER
             setTextColor(if (tab == t) c.accentInk else c.ink)
@@ -150,15 +163,6 @@ class MainActivity : Activity() {
         bar.addView(tabBtn(Tab.HISTORY, L["history"]), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(0), 0, dp(8), 0) })
         bar.addView(tabBtn(Tab.SETTINGS, L["settings"]), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(bar)
-
-        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(content)
-        when (tab) {
-            Tab.HOME -> renderHome(c)
-            Tab.MODEL -> renderModels(c)
-            Tab.HISTORY -> renderHistory(c)
-            Tab.SETTINGS -> renderSettings(c)
-        }
     }
 
     // ---- Home tab ------------------------------------------------------------
