@@ -42,7 +42,8 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        setContentView(ScrollView(this).apply { addView(root) })
+        val scroll = ScrollView(this).apply { addView(root) }
+        setContentView(scroll)
     }
 
     override fun onResume() { super.onResume(); render() }
@@ -120,17 +121,17 @@ class MainActivity : Activity() {
         val c = Ui.cols(this)
         window.statusBarColor = c.bg
         root.setBackgroundColor(c.bg)
-        root.setPadding(dp(20), dp(32), dp(20), dp(20))
         root.removeAllViews()
 
         // App title and tagline at the top
         root.addView(TextView(this).apply {
             text = "Slide Dictate"; textSize = 26f; setTextColor(c.ink)
             setTypeface(typeface, Typeface.BOLD)
+            setPadding(dp(20), dp(32), dp(20), dp(12))
         })
         root.addView(TextView(this).apply {
             text = L["tagline"]
-            textSize = 15f; setTextColor(c.sub); setPadding(0, dp(6), 0, 0)
+            textSize = 15f; setTextColor(c.sub); setPadding(dp(20), 0, dp(20), dp(12))
         })
 
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -145,7 +146,7 @@ class MainActivity : Activity() {
         // toolbar: Home | Model | History | Settings at the bottom
         val bar = LinearLayout(this).apply { 
             orientation = LinearLayout.HORIZONTAL; 
-            setPadding(0, dp(16), 0, 0)
+            setPadding(dp(20), dp(16), dp(20), dp(20))
         }
         fun tabBtn(t: Tab, label: String) = TextView(this).apply {
             text = label; textSize = 15f; gravity = Gravity.CENTER
